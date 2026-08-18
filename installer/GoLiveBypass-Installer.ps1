@@ -157,6 +157,31 @@ function Get-DiscordResources {
     return $found
 }
 
+# A pasta que o instalador do mod quer em -location: <LOCALAPPDATA>\Discord, a que contem
+# as app-x.y.z. Get-DiscordResources ja devolve ...\app-x.y.z\resources, entao sao dois niveis
+# acima. A ordem de Get-DiscordResources faz o Discord estavel vir antes do Canary/PTB.
+function Get-DiscordRoot {
+    foreach ($resources in Get-DiscordResources) {
+        $root = Split-Path -Parent (Split-Path -Parent $resources)
+        if ($root -and (Test-Path -LiteralPath $root)) { return $root }
+    }
+    return $null
+}
+
+# O EquilotlCli (e o equivalente do Vencord) sempre abre um menu de setas perguntando qual
+# Discord patchear, e fica parado esperando Enter - mesmo com --install/--uninstall. Num
+# terminal da para responder; na janela do instalador nao ha teclado ligado nele e o processo
+# esperava para sempre. Dizer -location de antemao faz o menu nao aparecer.
+function Invoke-ModInstaller($task) {
+    $location = Get-DiscordRoot
+    if ($location) {
+        Write-Step "Discord: $location"
+        & pnpm $task -location $location
+    } else {
+        & pnpm $task
+    }
+}
+
 function Get-InjectedPath($resources) {
     # O instalador do Equicord e o do Vencord trocam o app.asar por um stub cujo index.js so
     # faz require da pasta de build. Numa instalacao a partir do fonte esse require aponta
@@ -420,7 +445,7 @@ function Invoke-Injection($root) {
     try {
         Stop-Discord
         Write-Step 'Injetando no Discord'
-        & pnpm inject
+        Invoke-ModInstaller 'inject'
         if ($LASTEXITCODE -ne 0) { throw 'pnpm inject falhou' }
     } finally {
         Pop-Location
@@ -477,7 +502,7 @@ function Invoke-Uninstall {
     Push-Location -LiteralPath $root
     try {
         Write-Step 'Desfazendo a injecao'
-        & pnpm uninject
+        Invoke-ModInstaller 'uninject'
     } finally { Pop-Location }
 
     Start-Discord

@@ -244,6 +244,11 @@ function Start-Engine($mode, $friendly) {
     $psi.CreateNoWindow = $true
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError = $true
+    # Aqui nao existe teclado ligado no processo. Sem isto, qualquer programa que resolva
+    # perguntar alguma coisa fica esperando uma resposta que nunca vem, e a janela fica
+    # "instalando" para sempre. Com o stdin fechado ele leva um EOF e falha rapido, que pelo
+    # menos aparece no log.
+    $psi.RedirectStandardInput = $true
 
     $proc = New-Object System.Diagnostics.Process
     $proc.StartInfo = $psi
@@ -255,6 +260,7 @@ function Start-Engine($mode, $friendly) {
     )
 
     $proc.Start() | Out-Null
+    $proc.StandardInput.Close()
     $proc.BeginOutputReadLine()
     $proc.BeginErrorReadLine()
     $global:GlbProc = $proc
