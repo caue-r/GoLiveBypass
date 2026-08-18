@@ -110,7 +110,7 @@ Medido: escolher aleatoriamente e testar só o handshake acerta 12% das vezes; r
 
 ## Instalação automática (recomendado)
 
-Um script encontra sozinho o Equicord ou o Vencord que você tem, instala o plugin, compila e injeta. Se você não tiver nenhum dos dois, ele pergunta qual você quer e instala junto.
+Um script encontra sozinho o Equicord ou o Vencord que você tem, instala o plugin, compila e injeta. Se você não tiver nenhum dos dois, ele instala o **Equicord** automaticamente, sem perguntar nada.
 
 **Windows, jeito mais simples:** baixe o [`GoLiveBypass-Installer.bat`](installer/GoLiveBypass-Installer.bat) e dê dois cliques. Ele libera a execução só para aquele processo (`Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`), baixa o `.ps1` se ele não estiver do lado, e roda tudo.
 
@@ -122,7 +122,7 @@ chmod +x golivebypass-installer.sh
 ./golivebypass-installer.sh
 ```
 
-Ao abrir, ele mostra o que encontrou e um menu:
+Ao abrir, ele mostra o que encontrou e um menu com só duas opções:
 
 ```
   Detectado:
@@ -133,13 +133,12 @@ Ao abrir, ele mostra o que encontrou e um menu:
 
   O que voce quer fazer?
 
-    [1] Instalar ou atualizar o GoLiveBypass
-    [2] Remover so o plugin (o mod continua)
-    [3] Restaurar tudo (remove o plugin e desfaz a injecao)
+    [1] Instalar ou reinstalar o GoLiveBypass
+    [2] Desinstalar
     [0] Sair
 ```
 
-Escolhendo instalar, ele pergunta três coisas: **onde** (usar o mod que já está aí ou baixar outro), **como sair do Brasil** (proxy gratuita testada sozinha, Tor local, ou uma proxy sua) e **por quanto tempo** (permanente, ou temporário — que desfaz a injeção quando você fechar o Discord).
+Escolhendo instalar, ele não pergunta mais nada: reaproveita o Equicord/Vencord que achar (ou baixa o Equicord se não achar nenhum), usa a proxy gratuita testada sozinha e deixa a injeção permanente. Escolhendo desinstalar, ele remove o plugin e desfaz a injeção — o Discord volta ao normal.
 
 **Pelo PowerShell:**
 
@@ -154,7 +153,7 @@ Ele descobre onde está o seu checkout **lendo a própria injeção do Discord**
 |---|---|
 | Equicord ou Vencord já instalado a partir do fonte | Copia o plugin, compila e reinicia o Discord |
 | Instalado, mas o Discord não carrega desse checkout | Compila e roda o `pnpm inject` para apontar o Discord para ele |
-| Você não tem nenhum dos dois | Mostra uma tela para escolher **Equicord** ou **Vencord**, baixa, compila e injeta |
+| Você não tem nenhum dos dois | Baixa, compila e injeta o **Equicord** automaticamente |
 | Falta Git ou Node | No Windows, oferece instalar pelo winget. No Linux, mostra o comando da sua distro (o pacote do Node é `nodejs`, e costuma ser antigo demais: nesse caso use nvm, fnm ou o NodeSource). O pnpm sai do `corepack enable` nos dois |
 
 A descoberta é automática e roda em milissegundos: primeiro lê a injeção do Discord, depois varre os lugares onde um checkout costuma estar (perfil, Documentos, Desktop, Downloads, `dev`, `repos`, `projects`, `source`, e a raiz de cada disco).
@@ -163,20 +162,16 @@ Outros modos:
 
 ```powershell
 .\GoLiveBypass-Installer.ps1 -Source C:\caminho\do\Equicord  # aponta o checkout na mão
-.\GoLiveBypass-Installer.ps1 -Mod Vencord                     # escolhe o mod sem a tela
 .\GoLiveBypass-Installer.ps1 -Yes                             # sem perguntas, para automação
-.\GoLiveBypass-Installer.ps1 -Mode Install                    # instala direto, sem menu
-.\GoLiveBypass-Installer.ps1 -Mode Uninstall                  # remove o plugin e recompila
-.\GoLiveBypass-Installer.ps1 -Mode Restore                    # remove o plugin e desfaz a injeção
+.\GoLiveBypass-Installer.ps1 -Mode Install                    # instala (ou reinstala) direto, sem menu
+.\GoLiveBypass-Installer.ps1 -Mode Uninstall                  # remove o plugin e desfaz a injeção
 ```
 
 ```bash
 ./golivebypass-installer.sh --source ~/Equicord   # aponta o checkout na mão
-./golivebypass-installer.sh --mod vencord         # escolhe o mod sem a tela
 ./golivebypass-installer.sh --yes                 # sem perguntas, para automação
-./golivebypass-installer.sh --install             # instala direto, sem menu
-./golivebypass-installer.sh --uninstall           # remove o plugin e recompila
-./golivebypass-installer.sh --restore             # remove o plugin e desfaz a injeção
+./golivebypass-installer.sh --install             # instala (ou reinstala) direto, sem menu
+./golivebypass-installer.sh --uninstall           # remove o plugin e desfaz a injeção
 ```
 
 O instalador **baixa o plugin direto deste repositório** em vez de carregar uma cópia embutida, então nunca instala uma versão defasada. Ele nunca mexe no `app.asar`: quem injeta é o instalador oficial do Equicord/Vencord.
