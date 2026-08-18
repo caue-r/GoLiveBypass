@@ -22,7 +22,11 @@ param(
 
     [string] $Source = '',
 
-    [switch] $Yes
+    [switch] $Yes,
+
+    # So carrega as funcoes e para, sem mostrar menu nem instalar nada. E como a janela
+    # (GoLiveBypass-Setup.ps1) reaproveita a deteccao daqui em vez de ter uma copia dela.
+    [switch] $AsLibrary
 )
 
 $ErrorActionPreference = 'Stop'
@@ -98,10 +102,33 @@ function Test-Pnpm {
     return $LASTEXITCODE -eq 0
 }
 
+# O PATH de um processo e uma copia feita quando ele nasceu: o winget pode instalar o Node
+# perfeitamente e este script continuar sem enxergar, porque esta olhando para a copia velha.
+# Reler do registro resolve quase sempre. Quando o instalador ainda nao terminou de gravar la,
+# procurar nas pastas padrao cobre o resto - e e o que evita mandar a pessoa reiniciar tudo.
 function Update-PathFromEnvironment {
     $machine = [Environment]::GetEnvironmentVariable('Path', 'Machine')
     $user = [Environment]::GetEnvironmentVariable('Path', 'User')
     $env:Path = @($machine, $user | Where-Object { $_ }) -join ';'
+
+    $known = @(
+        (Join-Path $env:ProgramFiles 'nodejs')
+        (Join-Path $env:ProgramFiles 'Git\cmd')
+        (Join-Path $env:LOCALAPPDATA 'Programs\nodejs')
+        (Join-Path $env:LOCALAPPDATA 'Programs\Git\cmd')
+        (Join-Path $env:APPDATA 'npm')            # onde o "npm install -g pnpm" poe o pnpm
+    )
+    if (${env:ProgramFiles(x86)}) {
+        $known += (Join-Path ${env:ProgramFiles(x86)} 'nodejs')
+        $known += (Join-Path ${env:ProgramFiles(x86)} 'Git\cmd')
+    }
+
+    $current = $env:Path -split ';'
+    foreach ($dir in $known) {
+        if ((Test-Path -LiteralPath $dir) -and ($current -notcontains $dir)) {
+            $env:Path = "$dir;$env:Path"
+        }
+    }
 }
 
 function Test-ModCheckout($path) {
@@ -266,13 +293,32 @@ function Install-Toolchain($needGit) {
 
         foreach ($tool in $missing) {
             $id = if ($tool -eq 'git') { 'Git.Git' } else { 'OpenJS.NodeJS.LTS' }
-            Write-Step "winget install $id"
+            Write-Step "winget install $id (pode demorar alguns minutos)"
             & winget install --id $id --accept-source-agreements --accept-package-agreements --silent
         }
 
-        Write-Host ''
-        Write-Warn 'Feche este terminal, abra outro e rode o instalador de novo para o PATH atualizar.'
-        exit 0
+        # Em vez de mandar fechar o terminal e comecar tudo de novo, atualizar o PATH aqui
+        # mesmo e seguir. O codigo de saida do winget nao serve de prova (ele devolve
+        # sucesso em caso que nao instalou nada), entao quem decide e o teste abaixo.
+        Write-Step 'Atualizando o PATH desta sessao'
+        Update-PathFromEnvironment
+
+        $still = @()
+        if ($needGit -and -not (Test-Tool 'git')) { $still += 'git' }
+        if (-not (Test-Tool 'node')) { $still += 'node' }
+
+        if ($still.Count -gt 0) {
+            Write-Host ''
+            Write-Warn "Instalei, mas o Windows ainda nao esta enxergando: $($still -join ', ')"
+            Write-Host '  Isso acontece quando o instalador nao terminou de se registrar no sistema.' -ForegroundColor DarkGray
+            Write-Host '  Reinicie o computador e abra este instalador de novo: ele continua de onde parou.' -ForegroundColor DarkGray
+            Write-Host ''
+            # Codigo 3 = "precisa reiniciar". A janela do instalador usa isso para oferecer
+            # o reinicio; 'exit' sai direto, sem passar pelo catch la embaixo.
+            exit 3
+        }
+
+        Write-Ok "$($missing -join ' e ') instalado. Nao precisa reiniciar nada, seguindo."
     }
 
     if (-not (Test-Pnpm) -and (Test-Tool 'corepack')) {
@@ -564,6 +610,8 @@ function Show-MainMenu {
         default { Write-Host '  Ate mais.' -ForegroundColor DarkGray }
     }
 }
+
+if ($AsLibrary) { return }
 
 Show-Banner
 
