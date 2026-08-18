@@ -36,7 +36,7 @@ $env:COREPACK_ENABLE_DOWNLOAD_PROMPT = '0'
 # recusado, e nesse caso nao ha o que fazer aqui: o proprio .bat ja abre com -ExecutionPolicy Bypass.
 try { Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force } catch { }
 
-$RepoRaw = 'https://raw.githubusercontent.com/bezumiya/GoLiveBypass/main'
+$RepoRaw = 'https://raw.githubusercontent.com/caue-r/GoLiveBypass/main'
 $PluginFiles = @('goLiveBypass/index.tsx', 'goLiveBypass/native.ts')
 $PluginDirName = 'goLiveBypass'
 $DiscordNames = @('Discord', 'DiscordCanary', 'DiscordPTB')

@@ -22,7 +22,7 @@ set -euo pipefail
 # script trava ali.
 export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 
-REPO_RAW="https://raw.githubusercontent.com/bezumiya/GoLiveBypass/main"
+REPO_RAW="https://raw.githubusercontent.com/caue-r/GoLiveBypass/main"
 PLUGIN_FILES=("goLiveBypass/index.tsx" "goLiveBypass/native.ts")
 PLUGIN_DIR_NAME="goLiveBypass"
 EQUICORD_GIT="https://github.com/Equicord/Equicord"
