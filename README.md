@@ -112,7 +112,11 @@ Medido: escolher aleatoriamente e testar só o handshake acerta 12% das vezes; r
 
 Um script encontra sozinho o Equicord ou o Vencord que você tem, instala o plugin, compila e injeta. Se você não tiver nenhum dos dois, ele instala o **Equicord** automaticamente, sem perguntar nada.
 
-**Windows, jeito mais simples:** baixe o [`GoLiveBypass-Installer.bat`](installer/GoLiveBypass-Installer.bat) e dê dois cliques. Ele libera a execução só para aquele processo (`Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`), baixa o `.ps1` se ele não estiver do lado, e roda tudo.
+**Windows, jeito mais simples — instalador em janela:** baixe o [`GoLiveBypass-Setup.bat`](installer/GoLiveBypass-Setup.bat) e dê dois cliques. Abre uma janela com dois botões, **Instalar / Reinstalar** e **Desinstalar**, e um log mostrando o que está acontecendo. Sem terminal e sem digitar nada. É o caminho recomendado para quem não mexe com programação.
+
+Ele pede permissão de administrador logo no começo (uma vez só), porque instalar o Node e o Git precisa disso. Se você recusar, ele continua mesmo assim — só a instalação automática do Node/Git é que pode falhar.
+
+**Windows, pelo terminal:** baixe o [`GoLiveBypass-Installer.bat`](installer/GoLiveBypass-Installer.bat) e dê dois cliques. Mesma coisa, com menu de texto no terminal. Ele libera a execução só para aquele processo (`Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`), baixa o `.ps1` se ele não estiver do lado, e roda tudo.
 
 **Linux:**
 
@@ -154,9 +158,11 @@ Ele descobre onde está o seu checkout **lendo a própria injeção do Discord**
 | Equicord ou Vencord já instalado a partir do fonte | Copia o plugin, compila e reinicia o Discord |
 | Instalado, mas o Discord não carrega desse checkout | Compila e roda o `pnpm inject` para apontar o Discord para ele |
 | Você não tem nenhum dos dois | Baixa, compila e injeta o **Equicord** automaticamente |
-| Falta Git ou Node | No Windows, oferece instalar pelo winget. No Linux, mostra o comando da sua distro (o pacote do Node é `nodejs`, e costuma ser antigo demais: nesse caso use nvm, fnm ou o NodeSource). O pnpm sai do `corepack enable` nos dois |
+| Falta Git ou Node | No Windows, instala pelo winget e **segue na hora**, sem pedir para fechar o terminal. No Linux, mostra o comando da sua distro (o pacote do Node é `nodejs`, e costuma ser antigo demais: nesse caso use nvm, fnm ou o NodeSource). O pnpm sai do `corepack enable` nos dois |
 
 A descoberta é automática e roda em milissegundos: primeiro lê a injeção do Discord, depois varre os lugares onde um checkout costuma estar (perfil, Documentos, Desktop, Downloads, `dev`, `repos`, `projects`, `source`, e a raiz de cada disco).
+
+**Sobre precisar reiniciar:** o `PATH` de um programa é uma cópia feita quando ele começou, então instalar o Node no meio da execução não fazia o instalador enxergá-lo — daí a antiga mensagem de "feche o terminal e rode de novo", que às vezes virava um reinício do computador inteiro. Agora o instalador relê o `PATH` do registro e confere as pastas padrão (`Program Files\nodejs`, `Program Files\Git\cmd`, `%APPDATA%\npm`) logo depois do winget, e continua na mesma execução. Reiniciar só é pedido se, mesmo assim, o Windows ainda não estiver reconhecendo o que foi instalado — e nesse caso a janela oferece reiniciar para você.
 
 Outros modos:
 
@@ -354,8 +360,10 @@ goLiveBypass/
                                    #   detecção de Tor, registro, nova tentativa, prazos de segurança
 
 installer/
+├── GoLiveBypass-Setup.bat         # Windows: dois cliques, abre o instalador em janela
+├── GoLiveBypass-Setup.ps1         # Windows: janela com os botões; o trabalho é do .ps1 abaixo
 ├── GoLiveBypass-Installer.bat     # Windows: dois cliques, libera a execução e chama o .ps1
-├── GoLiveBypass-Installer.ps1     # Windows: instalador automático
+├── GoLiveBypass-Installer.ps1     # Windows: instalador automático (o motor, usado pelos dois)
 └── golivebypass-installer.sh      # Linux: mesmo instalador, mesmo menu
 
 assets/
