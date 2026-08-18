@@ -2,13 +2,14 @@
 #
 # GoLiveBypass - instalador automatico (Linux)
 #
-# Encontra sozinho o Equicord ou o Vencord que voce tem, instala o plugin, compila e injeta.
-# Se voce nao tiver nenhum dos dois, pergunta qual quer e instala junto.
+# Encontra sozinho o Equicord ou o Vencord que voce ja tem e reaproveita. Se nao achar
+# nenhum, instala o Equicord automaticamente. Em qualquer caso, instala o plugin, compila
+# e injeta sem perguntar nada.
 #
 # Uso:
 #   ./golivebypass-installer.sh
 #   ./golivebypass-installer.sh --source ~/Equicord
-#   ./golivebypass-installer.sh --mod vencord --yes
+#   ./golivebypass-installer.sh --install --yes
 #   ./golivebypass-installer.sh --uninstall
 #
 # Obrigado ao Vithor (https://github.com/Vith0r), que escreveu o primeiro instalador do
@@ -16,14 +17,17 @@
 
 set -euo pipefail
 
+# Sem isso, a primeira vez que o corepack baixa uma versao do pnpm ele pergunta "Do you want
+# to continue? [Y/n]". Sem alguem para responder (por exemplo rodando via curl | bash), o
+# script trava ali.
+export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+
 REPO_RAW="https://raw.githubusercontent.com/bezumiya/GoLiveBypass/main"
 PLUGIN_FILES=("goLiveBypass/index.tsx" "goLiveBypass/native.ts")
 PLUGIN_DIR_NAME="goLiveBypass"
 EQUICORD_GIT="https://github.com/Equicord/Equicord"
-VENCORD_GIT="https://github.com/Vendicated/Vencord"
 
 MODE="menu"
-MOD=""
 SOURCE=""
 ASSUME_YES=0
 
@@ -73,8 +77,6 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --install) MODE="install" ;;
         --uninstall) MODE="uninstall" ;;
-        --restore) MODE="restore" ;;
-        --mod) MOD="${2:-}"; shift ;;
         --source) SOURCE="${2:-}"; shift ;;
         --yes|-y) ASSUME_YES=1 ;;
         --help|-h) usage ;;
@@ -200,41 +202,6 @@ injected_from_checkout() {
 
 # ----------------------------------------------------------------------------- instalacao
 
-choose_mod() {
-    if [ -n "$MOD" ]; then
-        case "${MOD,,}" in
-            equicord) echo "Equicord"; return 0 ;;
-            vencord) echo "Vencord"; return 0 ;;
-            *) fail "--mod aceita equicord ou vencord" ;;
-        esac
-    fi
-
-    local installed
-    installed="$(installed_mod || true)"
-
-    printf '\n' >&2
-    if [ -n "$installed" ]; then
-        warn "Voce tem o $installed instalado, mas nao achei o codigo fonte dele." >&2
-        printf '  %sPlugins de usuario so existem compilando do fonte, entao preciso baixar o repositorio.%s\n' "$C_DIM" "$C_OFF" >&2
-    else
-        warn "Nao encontrei Equicord nem Vencord no seu computador." >&2
-        printf '  %sPosso baixar e instalar um dos dois junto com o plugin.%s\n' "$C_DIM" "$C_OFF" >&2
-    fi
-
-    printf '\n  %sQual voce quer instalar?%s\n\n' "$C_BOLD" "$C_OFF" >&2
-    printf '    %s[1] Equicord%s    recomendado, inclui tudo do Vencord e mais plugins\n' "$C_GREEN" "$C_OFF" >&2
-    printf '    %s[2] Vencord%s     o original, mais enxuto\n' "$C_CYAN" "$C_OFF" >&2
-    printf '    [0] Cancelar\n\n' >&2
-
-    local choice
-    read -r -p "  Escolha: " choice
-    case "$choice" in
-        1) echo "Equicord" ;;
-        2) echo "Vencord" ;;
-        *) fail "Cancelado." ;;
-    esac
-}
-
 ensure_toolchain() {
     local need_git="$1" missing=()
 
@@ -273,17 +240,13 @@ ensure_toolchain() {
     have_pnpm || fail 'Nao consegui deixar o pnpm funcionando. Rode: sudo npm install -g pnpm'
 }
 
-install_mod() {
-    local choice="$1" git_url target
-    case "$choice" in
-        Equicord) git_url="$EQUICORD_GIT" ;;
-        Vencord)  git_url="$VENCORD_GIT" ;;
-        *) fail "Mod desconhecido: $choice" ;;
-    esac
-    target="$HOME/$choice"
+install_equicord() {
+    local target="$HOME/Equicord"
 
-    printf '\n  %sVou fazer:%s\n' "$C_BOLD" "$C_OFF" >&2
-    printf '  %s  1. Baixar o %s em %s%s\n' "$C_DIM" "$choice" "$target" "$C_OFF" >&2
+    printf '\n' >&2
+    warn "Nao encontrei Equicord nem Vencord no seu computador." >&2
+    printf '  %sVou fazer:%s\n' "$C_BOLD" "$C_OFF" >&2
+    printf '  %s  1. Baixar o Equicord em %s%s\n' "$C_DIM" "$target" "$C_OFF" >&2
     printf '  %s  2. Instalar as dependencias%s\n' "$C_DIM" "$C_OFF" >&2
     printf '  %s  3. Compilar junto com o GoLiveBypass%s\n' "$C_DIM" "$C_OFF" >&2
     printf '  %s  4. Injetar no Discord (o Discord vai fechar)%s\n\n' "$C_DIM" "$C_OFF" >&2
@@ -295,8 +258,8 @@ install_mod() {
         is_checkout "$target" || fail "$target ja existe e nao parece um checkout. Apague a pasta ou use --source."
         step "Ja existe um checkout em $target, reaproveitando" >&2
     else
-        step "git clone $git_url" >&2
-        git clone --depth 1 "$git_url" "$target" >&2 || fail "git clone falhou"
+        step "git clone $EQUICORD_GIT" >&2
+        git clone --depth 1 "$EQUICORD_GIT" "$target" >&2 || fail "git clone falhou"
     fi
 
     printf '%s\n' "$target"
@@ -476,59 +439,12 @@ show_status() {
 select_target() {
     local root="${1:-}"
     if [ -z "$root" ]; then
-        install_mod "$(choose_mod)"
+        install_equicord
         return
     fi
 
-    local name
-    name="$(basename "$root")"
-    printf '  %sOnde instalar?%s\n\n' "$C_BOLD" "$C_OFF" >&2
-    printf '    %s[1] Usar o %s que ja esta aqui%s\n' "$C_GREEN" "$name" "$C_OFF" >&2
-    printf '  %s      %s%s\n' "$C_DIM" "$root" "$C_OFF" >&2
-    printf '    %s[2] Baixar e usar outro (Equicord ou Vencord)%s\n\n' "$C_CYAN" "$C_OFF" >&2
-
-    local choice
-    read -r -p "  Escolha: " choice
-    if [ "$choice" = "2" ]; then
-        install_mod "$(choose_mod)"
-    else
-        printf '%s\n' "$root"
-    fi
-}
-
-select_proxy() {
-    printf '\n  %sComo o bypass vai sair para fora do Brasil?%s\n\n' "$C_BOLD" "$C_OFF" >&2
-    printf '    %s[1] Proxy gratuita, escolhida e testada sozinha%s\n' "$C_GREEN" "$C_OFF" >&2
-    printf '  %s      Nao precisa instalar nada. O plugin testa varias e usa a que passar.%s\n' "$C_DIM" "$C_OFF" >&2
-    printf '    %s[2] Tor local%s\n' "$C_CYAN" "$C_OFF" >&2
-    printf '  %s      Mais confiavel e rapido, mas voce precisa ter o Tor rodando.%s\n' "$C_DIM" "$C_OFF" >&2
-    printf '    %s[3] Proxy minha%s\n' "$C_CYAN" "$C_OFF" >&2
-    printf '  %s      Voce informa o endereco, no formato socks5://host:porta.%s\n\n' "$C_DIM" "$C_OFF" >&2
-
-    local choice manual
-    read -r -p "  Escolha: " choice
-    case "$choice" in
-        2) printf 'socks5://127.0.0.1:9050\n' ;;
-        3)
-            read -r -p "  Endereco da proxy: " manual
-            [[ "$manual" =~ ^(socks5|https?)://[a-z0-9.-]{1,253}:[0-9]{1,5}$ ]] || fail "Formato invalido. Use socks5://host:porta."
-            printf '%s\n' "$manual"
-            ;;
-        *) printf '\n' ;;
-    esac
-}
-
-select_persistence() {
-    printf '\n  %sComo voce quer deixar o Discord?%s\n\n' "$C_BOLD" "$C_OFF" >&2
-    printf '    %s[1] Permanente%s\n' "$C_GREEN" "$C_OFF" >&2
-    printf '  %s      O Discord abre com o mod toda vez, ate voce remover.%s\n' "$C_DIM" "$C_OFF" >&2
-    printf '    %s[2] Temporario%s\n' "$C_YELLOW" "$C_OFF" >&2
-    printf '  %s      Vale so nesta sessao. Ao fechar o Discord a injecao e desfeita.%s\n\n' "$C_DIM" "$C_OFF" >&2
-
-    local choice
-    read -r -p "  Escolha: " choice
-    [ "$choice" = "2" ] && return 1
-    return 0
+    ok "Usando o checkout encontrado em $root" >&2
+    printf '%s\n' "$root"
 }
 
 start_discord() {
@@ -541,31 +457,9 @@ start_discord() {
     done
 }
 
-wait_discord_exit() {
-    local root="$1"
-    printf '\n'
-    ok "Discord aberto com o GoLiveBypass."
-    warn "Deixe este terminal aberto. Quando voce fechar o Discord, eu desfaco a injecao."
-
-    sleep 5
-    while pgrep -x -i 'Discord|DiscordCanary|DiscordPTB' >/dev/null 2>&1; do sleep 2; done
-
-    printf '\n'
-    step "Discord fechado, desfazendo a injecao"
-    if (cd "$root" && pnpm uninject); then
-        ok "Discord restaurado."
-    else
-        warn "O pnpm uninject falhou. Rode 'pnpm uninject' na pasta do mod."
-    fi
-}
-
 do_install() {
     local root="${1:-}"
     root="$(select_target "$root")"
-
-    local proxy permanent=0
-    proxy="$(select_proxy)"
-    select_persistence || permanent=1
 
     ensure_toolchain 0
     copy_plugin "$root"
@@ -580,21 +474,14 @@ do_install() {
 
     # Com o Discord fechado: aberto, ele regrava o settings.json a partir da memoria e
     # apaga o que escrevemos aqui.
-    set_plugin_settings "$root" "$proxy"
+    set_plugin_settings "$root" ""
 
     start_discord
 
     printf '\n'
     ok "Pronto. O plugin ja vem ativado, nao precisa mexer em nada."
-    if [ -n "$proxy" ]; then
-        printf '  %sProxy: %s%s\n' "$C_DIM" "$proxy" "$C_OFF"
-    else
-        printf '  %sProxy: gratuita, escolhida e testada sozinha a cada abertura%s\n' "$C_DIM" "$C_OFF"
-    fi
+    printf '  %sProxy: gratuita, escolhida e testada sozinha a cada abertura%s\n' "$C_DIM" "$C_OFF"
     printf '  %sEntre numa call e use Go Live ou a camera.%s\n' "$C_DIM" "$C_OFF"
-
-    [ "$permanent" -eq 1 ] && wait_discord_exit "$root"
-    return 0
 }
 
 do_uninstall() {
@@ -602,36 +489,15 @@ do_uninstall() {
     root="$(find_checkout)" || fail "Nao encontrei o checkout do Equicord/Vencord. Use --source."
     target="$root/src/userplugins/$PLUGIN_DIR_NAME"
 
-    if [ -d "$target" ]; then
-        step "Removendo $target"
-        rm -rf "$target"
-    else
-        warn "O plugin nao estava instalado nesse checkout."
-    fi
+    [ -d "$target" ] && { step "Removendo $target"; rm -rf "$target"; }
 
-    build_mod "$root"
     stop_discord
+    step "Desfazendo a injecao"
+    (cd "$root" && pnpm uninject) || warn "O pnpm uninject falhou."
     start_discord
 
     printf '\n'
-    ok "Plugin removido. Seu Equicord/Vencord continua funcionando."
-}
-
-do_restore_everything() {
-    local root target
-    if root="$(find_checkout)"; then
-        target="$root/src/userplugins/$PLUGIN_DIR_NAME"
-        [ -d "$target" ] && { step "Removendo $target"; rm -rf "$target"; }
-
-        stop_discord
-        step "Desfazendo a injecao"
-        (cd "$root" && pnpm uninject) || warn "O pnpm uninject falhou."
-    else
-        warn "Nao achei o fonte do mod, entao so posso parar por aqui."
-    fi
-
-    printf '\n'
-    ok "Tudo restaurado. Seu Discord voltou ao normal."
+    ok "Tudo desinstalado. Seu Discord voltou ao normal."
 }
 
 main_menu() {
@@ -640,9 +506,8 @@ main_menu() {
     show_status "$root"
 
     printf '  %sO que voce quer fazer?%s\n\n' "$C_BOLD" "$C_OFF"
-    printf '    %s[1] Instalar ou atualizar o GoLiveBypass%s\n' "$C_GREEN" "$C_OFF"
-    printf '    %s[2] Remover so o plugin (o mod continua)%s\n' "$C_YELLOW" "$C_OFF"
-    printf '    %s[3] Restaurar tudo (remove o plugin e desfaz a injecao)%s\n' "$C_RED" "$C_OFF"
+    printf '    %s[1] Instalar ou reinstalar o GoLiveBypass%s\n' "$C_GREEN" "$C_OFF"
+    printf '    %s[2] Desinstalar%s\n' "$C_RED" "$C_OFF"
     printf '    [0] Sair\n\n'
 
     local choice
@@ -650,7 +515,6 @@ main_menu() {
     case "$choice" in
         1) do_install "$root" ;;
         2) do_uninstall ;;
-        3) do_restore_everything ;;
         *) printf '  %sAte mais.%s\n' "$C_DIM" "$C_OFF" ;;
     esac
 }
@@ -659,7 +523,6 @@ banner
 case "$MODE" in
     install) do_install "$(find_checkout || true)" ;;
     uninstall) do_uninstall ;;
-    restore) do_restore_everything ;;
     *) main_menu ;;
 esac
 printf '\n'

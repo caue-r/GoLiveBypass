@@ -1,13 +1,14 @@
 <#
     GoLiveBypass - instalador automatico
 
-    Encontra sozinho o Equicord ou o Vencord que voce tem, instala o plugin, compila e
-    injeta. Se voce nao tiver nenhum dos dois, pergunta qual quer e instala junto.
+    Encontra sozinho o Equicord ou o Vencord que voce ja tem e reaproveita. Se nao achar
+    nenhum, instala o Equicord automaticamente. Em qualquer caso, instala o plugin, compila
+    e injeta sem perguntar nada.
 
     Uso:
       .\GoLiveBypass-Installer.ps1
       .\GoLiveBypass-Installer.ps1 -Source "C:\caminho\do\Equicord"
-      .\GoLiveBypass-Installer.ps1 -Mod Equicord -Yes
+      .\GoLiveBypass-Installer.ps1 -Mode Install -Yes
       .\GoLiveBypass-Installer.ps1 -Mode Uninstall
 
     Obrigado ao Vithor (https://github.com/Vith0r), que escreveu o primeiro instalador do
@@ -16,11 +17,8 @@
 
 [CmdletBinding()]
 param(
-    [ValidateSet('Menu', 'Install', 'Uninstall', 'Restore')]
+    [ValidateSet('Menu', 'Install', 'Uninstall')]
     [string] $Mode = 'Menu',
-
-    [ValidateSet('Equicord', 'Vencord')]
-    [string] $Mod = '',
 
     [string] $Source = '',
 
@@ -30,6 +28,10 @@ param(
 $ErrorActionPreference = 'Stop'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
+# Sem isso, a primeira vez que o corepack baixa uma versao do pnpm ele pergunta "Do you want
+# to continue? [Y/n]" e escreve isso no stderr. Sem alguem para responder, o script trava ali.
+$env:COREPACK_ENABLE_DOWNLOAD_PROMPT = '0'
+
 # Libera a execucao so para este processo. Em maquina com politica de dominio isso pode ser
 # recusado, e nesse caso nao ha o que fazer aqui: o proprio .bat ja abre com -ExecutionPolicy Bypass.
 try { Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force } catch { }
@@ -38,11 +40,7 @@ $RepoRaw = 'https://raw.githubusercontent.com/bezumiya/GoLiveBypass/main'
 $PluginFiles = @('goLiveBypass/index.tsx', 'goLiveBypass/native.ts')
 $PluginDirName = 'goLiveBypass'
 $DiscordNames = @('Discord', 'DiscordCanary', 'DiscordPTB')
-
-$Mods = @{
-    Equicord = @{ Git = 'https://github.com/Equicord/Equicord'; Label = 'Equicord'; Note = 'recomendado, inclui tudo do Vencord e mais plugins' }
-    Vencord  = @{ Git = 'https://github.com/Vendicated/Vencord'; Label = 'Vencord'; Note = 'o original, mais enxuto' }
-}
+$EquicordGit = 'https://github.com/Equicord/Equicord'
 
 function Write-Step($text) { Write-Host "  [*] $text" -ForegroundColor DarkGray }
 function Write-Ok($text) { Write-Host "  [OK] $text" -ForegroundColor Green }
@@ -92,7 +90,10 @@ function Test-Tool($name) {
 function Test-Pnpm {
     if (-not (Test-Tool 'pnpm')) { return $false }
 
-    # 2>$null para o erro do corepack nao assustar quem so vai ver a instalacao seguir.
+    # $ErrorActionPreference local (nao afeta fora da funcao): no Windows PowerShell 5.1,
+    # redirecionar o stderr de um comando nativo (mesmo para $null) vira um ErrorRecord, e
+    # com 'Stop' isso derruba o script inteiro so por causa de uma mensagem no stderr.
+    $ErrorActionPreference = 'Continue'
     & pnpm --version 2>$null | Out-Null
     return $LASTEXITCODE -eq 0
 }
@@ -247,35 +248,6 @@ function Test-InjectedFromCheckout($root) {
     return $false
 }
 
-function Show-ModChoice {
-    if ($Mod) { return $Mod }
-
-    $installed = Get-InstalledMod
-
-    Write-Host ''
-    if ($installed) {
-        Write-Warn "Voce tem o $installed instalado, mas nao achei o codigo fonte dele."
-        Write-Host '  Plugins de usuario so existem compilando do fonte, entao preciso baixar o repositorio.' -ForegroundColor DarkGray
-    } else {
-        Write-Warn 'Nao encontrei Equicord nem Vencord no seu computador.'
-        Write-Host '  Posso baixar e instalar um dos dois junto com o plugin.' -ForegroundColor DarkGray
-    }
-
-    Write-Host ''
-    Write-Host '  Qual voce quer instalar?' -ForegroundColor White
-    Write-Host ''
-    Write-Host "    [1] Equicord    $($Mods.Equicord.Note)" -ForegroundColor Green
-    Write-Host "    [2] Vencord     $($Mods.Vencord.Note)" -ForegroundColor Cyan
-    Write-Host '    [0] Cancelar' -ForegroundColor Gray
-    Write-Host ''
-
-    switch (Read-Host '  Escolha') {
-        '1' { return 'Equicord' }
-        '2' { return 'Vencord' }
-        default { throw 'Cancelado.' }
-    }
-}
-
 function Install-Toolchain($needGit) {
     $missing = @()
     if ($needGit -and -not (Test-Tool 'git')) { $missing += 'git' }
@@ -321,13 +293,13 @@ function Install-Toolchain($needGit) {
     }
 }
 
-function Install-Mod($choice) {
-    $info = $Mods[$choice]
-    $target = Join-Path $env:USERPROFILE $info.Label
+function Install-Equicord {
+    $target = Join-Path $env:USERPROFILE 'Equicord'
 
     Write-Host ''
+    Write-Warn 'Nao encontrei Equicord nem Vencord no seu computador.'
     Write-Host '  Vou fazer:' -ForegroundColor White
-    Write-Host "    1. Baixar o $($info.Label) em $target" -ForegroundColor DarkGray
+    Write-Host "    1. Baixar o Equicord em $target" -ForegroundColor DarkGray
     Write-Host '    2. Instalar as dependencias' -ForegroundColor DarkGray
     Write-Host '    3. Compilar junto com o GoLiveBypass' -ForegroundColor DarkGray
     Write-Host '    4. Injetar no Discord (o Discord vai fechar)' -ForegroundColor DarkGray
@@ -344,8 +316,8 @@ function Install-Mod($choice) {
         return $target
     }
 
-    Write-Step "git clone $($info.Git)"
-    & git clone --depth 1 $info.Git $target
+    Write-Step "git clone $EquicordGit"
+    & git clone --depth 1 $EquicordGit $target
     if ($LASTEXITCODE -ne 0) { throw 'git clone falhou' }
 
     return $target
@@ -421,44 +393,28 @@ function Start-Discord {
 
 function Invoke-Install($root) {
     $root = Select-Target $root
-    $proxy = Select-Proxy
-    $permanent = Select-Persistence
 
     Install-Toolchain $false
     Copy-Plugin $root
     Build-Mod $root
 
-    $weInjected = -not (Test-InjectedFromCheckout $root)
-    if ($weInjected) {
-        Invoke-Injection $root
-    } else {
+    if (Test-InjectedFromCheckout $root) {
         Write-Step 'O Discord ja carrega deste checkout, so reiniciando'
         Stop-Discord
+    } else {
+        Invoke-Injection $root
     }
 
     # Com o Discord fechado: aberto, ele regrava o settings.json a partir da memoria e
     # apaga o que escrevemos aqui.
-    Set-PluginSettings $root $proxy
+    Set-PluginSettings $root ''
 
     Start-Discord
 
     Write-Host ''
     Write-Ok 'Pronto. O plugin ja vem ativado, nao precisa mexer em nada.'
-    if ($proxy) {
-        Write-Host "  Proxy: $proxy" -ForegroundColor DarkGray
-    } else {
-        Write-Host '  Proxy: gratuita, escolhida e testada sozinha a cada abertura' -ForegroundColor DarkGray
-    }
+    Write-Host '  Proxy: gratuita, escolhida e testada sozinha a cada abertura' -ForegroundColor DarkGray
     Write-Host '  Entre numa call e use Go Live ou a camera.' -ForegroundColor DarkGray
-
-    if (-not $permanent) {
-        if ($weInjected) {
-            Wait-DiscordExit $root
-        } else {
-            Write-Warn 'O Discord ja estava injetado antes de eu rodar, entao nao vou desfazer isso.'
-            Write-Host '  Para remover depois: .\GoLiveBypass-Installer.ps1 -Mode Uninstall' -ForegroundColor DarkGray
-        }
-    }
 }
 
 function Invoke-Uninstall {
@@ -469,16 +425,19 @@ function Invoke-Uninstall {
     if (Test-Path -LiteralPath $target) {
         Write-Step "Removendo $target"
         Remove-Item -LiteralPath $target -Recurse -Force
-    } else {
-        Write-Warn 'O plugin nao estava instalado nesse checkout.'
     }
 
-    Build-Mod $root
     Stop-Discord
+    Push-Location -LiteralPath $root
+    try {
+        Write-Step 'Desfazendo a injecao'
+        & pnpm uninject
+    } finally { Pop-Location }
+
     Start-Discord
 
     Write-Host ''
-    Write-Ok 'Plugin removido. Seu Equicord/Vencord continua funcionando.'
+    Write-Ok 'Tudo desinstalado. Seu Discord voltou ao normal.'
 }
 
 # =============================================================================== interface
@@ -581,118 +540,11 @@ function Show-Status($root) {
 }
 
 function Select-Target($root) {
-    if (-not $root) { return (Install-Mod (Show-ModChoice)) }
-    if ($Yes) { return $root }
-
-    $name = Split-Path -Leaf $root
-    Write-Host '  Onde instalar?' -ForegroundColor White
-    Write-Host ''
-    Write-Host "    [1] Usar o $name que ja esta aqui" -ForegroundColor Green
-    Write-Host "        $root" -ForegroundColor DarkGray
-    Write-Host '    [2] Baixar e usar outro (Equicord ou Vencord)' -ForegroundColor Cyan
-    Write-Host ''
-
-    switch (Read-Host '  Escolha') {
-        '2' { return (Install-Mod (Show-ModChoice)) }
-        default { return $root }
-    }
-}
-
-function Select-Proxy {
-    if ($Yes) { return '' }
-
-    Write-Host ''
-    Write-Host '  Como o bypass vai sair para fora do Brasil?' -ForegroundColor White
-    Write-Host ''
-    Write-Host '    [1] Proxy gratuita, escolhida e testada sozinha' -ForegroundColor Green
-    Write-Host '        Nao precisa instalar nada. O plugin testa varias e usa a que passar.' -ForegroundColor DarkGray
-    Write-Host '    [2] Tor local' -ForegroundColor Cyan
-    Write-Host '        Mais confiavel e mais rapido, mas voce precisa ter o Tor rodando.' -ForegroundColor DarkGray
-    Write-Host '    [3] Proxy minha' -ForegroundColor Cyan
-    Write-Host '        Voce informa o endereco, no formato socks5://host:porta.' -ForegroundColor DarkGray
-    Write-Host ''
-
-    switch (Read-Host '  Escolha') {
-        '2' { return 'socks5://127.0.0.1:9150' }
-        '3' {
-            $manual = (Read-Host '  Endereco da proxy').Trim()
-            if ($manual -notmatch '^(socks5|https?)://[a-z0-9.-]{1,253}:\d{1,5}$') {
-                throw 'Formato invalido. Use socks5://host:porta.'
-            }
-            return $manual
-        }
-        default { return '' }
-    }
-}
-
-function Select-Persistence {
-    if ($Yes) { return $true }
-
-    Write-Host ''
-    Write-Host '  Como voce quer deixar o Discord?' -ForegroundColor White
-    Write-Host ''
-    Write-Host '    [1] Permanente' -ForegroundColor Green
-    Write-Host '        O Discord abre com o mod toda vez, ate voce remover.' -ForegroundColor DarkGray
-    Write-Host '    [2] Temporario' -ForegroundColor Yellow
-    Write-Host '        Vale so nesta sessao. Quando voce fechar o Discord, a injecao e desfeita.' -ForegroundColor DarkGray
-    Write-Host ''
-
-    return (Read-Host '  Escolha') -ne '2'
-}
-
-function Wait-DiscordExit($root) {
-    Write-Host ''
-    Write-Ok 'Discord aberto com o GoLiveBypass.'
-    Write-Warn 'Deixe esta janela aberta. Quando voce fechar o Discord, eu desfaco a injecao.'
-    Write-Host '  Se fechar esta janela antes, rode: .\GoLiveBypass-Installer.ps1 -Mode Uninstall' -ForegroundColor DarkGray
-
-    try {
-        # Esperar o Discord APARECER antes de esperar ele sumir. Sem isso, o Update.exe ainda
-        # nao trocou de processo e o laco acha que ja fechou, desfazendo tudo em 5 segundos.
-        for ($i = 0; $i -lt 90; $i++) {
-            if (Get-Process -Name $DiscordNames -ErrorAction SilentlyContinue) { break }
-            Start-Sleep -Seconds 1
-        }
-
-        if (-not (Get-Process -Name $DiscordNames -ErrorAction SilentlyContinue)) {
-            Write-Warn 'O Discord nao abriu em 90s. Vou desfazer a injecao agora.'
-        } else {
-            while (Get-Process -Name $DiscordNames -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }
-            Write-Host ''
-            Write-Step 'Discord fechado, desfazendo a injecao'
-        }
-    } finally {
-        # finally para que Ctrl+C tambem desfaca, em vez de deixar o Discord injetado.
-        Push-Location -LiteralPath $root
-        try {
-            & pnpm uninject
-            if ($LASTEXITCODE -ne 0) { Write-Warn 'O pnpm uninject falhou. Rode "pnpm uninject" na pasta do mod.' }
-            else { Write-Ok 'Discord restaurado.' }
-        } finally { Pop-Location }
-    }
-}
-
-function Invoke-RestoreEverything {
-    $root = Find-Checkout
     if ($root) {
-        $target = Join-Path $root "src\userplugins\$PluginDirName"
-        if (Test-Path -LiteralPath $target) {
-            Write-Step "Removendo $target"
-            Remove-Item -LiteralPath $target -Recurse -Force
-        }
-
-        Stop-Discord
-        Push-Location -LiteralPath $root
-        try {
-            Write-Step 'Desfazendo a injecao'
-            & pnpm uninject
-        } finally { Pop-Location }
-    } else {
-        Write-Warn 'Nao achei o fonte do mod, entao so posso parar por aqui.'
+        Write-Ok "Usando o checkout encontrado em $root"
+        return $root
     }
-
-    Write-Host ''
-    Write-Ok 'Tudo restaurado. Seu Discord voltou ao normal.'
+    return Install-Equicord
 }
 
 function Show-MainMenu {
@@ -701,16 +553,14 @@ function Show-MainMenu {
 
     Write-Host '  O que voce quer fazer?' -ForegroundColor White
     Write-Host ''
-    Write-Host '    [1] Instalar ou atualizar o GoLiveBypass' -ForegroundColor Green
-    Write-Host '    [2] Remover so o plugin (o mod continua)' -ForegroundColor Yellow
-    Write-Host '    [3] Restaurar tudo (remove o plugin e desfaz a injecao)' -ForegroundColor Red
+    Write-Host '    [1] Instalar ou reinstalar o GoLiveBypass' -ForegroundColor Green
+    Write-Host '    [2] Desinstalar' -ForegroundColor Red
     Write-Host '    [0] Sair' -ForegroundColor Gray
     Write-Host ''
 
     switch (Read-Host '  Escolha') {
         '1' { Invoke-Install $root }
         '2' { Invoke-Uninstall }
-        '3' { Invoke-RestoreEverything }
         default { Write-Host '  Ate mais.' -ForegroundColor DarkGray }
     }
 }
@@ -721,7 +571,6 @@ try {
     switch ($Mode) {
         'Install' { Invoke-Install (Find-Checkout) }
         'Uninstall' { Invoke-Uninstall }
-        'Restore' { Invoke-RestoreEverything }
         default { Show-MainMenu }
     }
 } catch {
