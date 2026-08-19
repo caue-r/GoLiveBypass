@@ -4,37 +4,68 @@ Plugin para **Equicord** e **Vencord**, feito por um desenvolvedor brasileiro, q
 
 > **English summary below / Resumo em inglês no final.**
 
-## A instalação inteira, do começo ao fim
+## 🌟 NOVO: Interface Gráfica Plug and Play (Apenas Windows)
+
+Criamos um aplicativo completo que faz todo o trabalho de forma **100% automática**, sem precisar abrir terminais, usar scripts ou instalar modificações complexas como o Equicord.
+
+<p align="center">
+  <img src="golive-gui/src/assets/hero2.png" alt="Screenshot da Interface Gráfica" width="400">
+</p>
+
+### Como Baixar e Instalar
+1. Vá na **[última release do projeto original](https://github.com/bezumiya/GoLiveBypass/releases/latest)** — é lá que o executável é publicado.
+2. Baixe o **`GoLiveBypass-GUI.exe`**, na lista de arquivos no fim da página.
+3. Abra o arquivo que você acabou de baixar (ele é portátil, roda direto sem sujar seu PC).
+
+> Este fork tem também um **instalador em janela próprio**, que não precisa de executável nenhum: o [`GoLiveBypass-Setup.bat`](installer/GoLiveBypass-Setup.bat), descrito [logo abaixo](#instalação-automática-recomendado). Os dois resolvem o mesmo problema por caminhos diferentes — o `.exe` acima é o app standalone do projeto original, e o `.bat` instala o plugin no Equicord/Vencord por uma janela com dois botões.
+
+O Windows pode mostrar um aviso do SmartScreen na primeira vez, porque o programa não é assinado. Se quiser abrir mesmo assim, é em **Mais informações → Executar assim mesmo**. Se preferir não correr esse risco, use a [instalação por comando](#instalação-automática-recomendado), que é o mesmo bypass sem executável.
+
+### Como Usar
+1. O aplicativo vai detectar o seu Discord automaticamente.
+2. Clique no botão azul **"Ativar GoLiveBypass"**.
+3. O Discord vai reiniciar automaticamente com o Go Live desbloqueado!
+
+> **Dica Importante:** Se a sua transmissão ficar com a tela preta ou não carregar de primeira, basta apertar **Ctrl + R** dentro do Discord para recarregar a tela, e ela voltará a funcionar!
+
+
+
+---
+
+## Índice
+
+**Quero instalar agora**
+- [**Interface Gráfica Standalone (Windows - Novo!)**](#-novo-interface-gráfica-plug-and-play-apenas-windows) — 1 clique para ativar/desativar sem precisar de scripts ou terminal
+- [**Instalação por um comando só**](#um-comando-só) — uma linha no PowerShell ou no terminal, sem baixar nada
+- [Instalação via Plugin (Equicord/Vencord)](#para-quem-prefere-usar-via-plugin-vencordequicord-ou-scripts) — a forma nativa de injetar
+- [Modo Standalone (Scripts)](#modo-standalone-só-o-discord-sem-equicord-e-sem-vencord) — o modo standalone via terminal/scripts
+- [**Linux: Arch, Debian, Ubuntu, Fedora**](#linux-arch-debian-ubuntu-fedora) — onde o Discord fica em cada distro, e a pedra do Node no Debian
+- [Instalação manual, passo a passo](#instalação-passo-a-passo-completo) — se preferir fazer cada etapa à mão
+- [Dependências](#dependências-o-que-baixar-e-como-instalar) — só para o caminho manual
+
+**Já instalei**
+- [Configuração](#configuração) — região da call, região da transmissão, proxy
+- [Uso](#uso) — o que fazer depois de instalar
+- [Solução de problemas](#solução-de-problemas) — Discord travado, transmissão que não sobe, plugin sumido
+- [O registro](#o-registro-o-que-o-plugin-anotou) — o arquivo que conta o que aconteceu, para relatar um problema
+
+**Quero entender antes**
+- [Por que este plugin existe](#por-que-este-plugin-existe)
+- [Como funciona](#como-funciona) — as duas travas e como cada uma é desarmada
+- [Avisos importantes](#avisos-importantes) — o que o plugin faz com a sua conexão, e os riscos
+
+**Projeto**
+- [Estrutura](#estrutura) · [Licença](#licença) · [Autor](#autor) · [Agradecimentos](#agradecimentos)
+
+---
+
+## Para quem prefere usar via Plugin (Vencord/Equicord) ou Scripts
 
 <p align="center">
   <img src="assets/instalacao.gif" alt="O instalador acha o Equicord, instala o plugin, compila e o Go Live volta a funcionar" width="720">
 </p>
 
 Um script faz tudo: acha o seu Equicord ou Vencord, instala o plugin, compila e abre o Discord com o Go Live funcionando. **[Começar aqui](#instalação-automática-recomendado)** — ou siga o [passo a passo escrito](#instalação-passo-a-passo-completo) se preferir fazer à mão.
-
-## Índice
-
-**Quero instalar agora**
-
-- [Instalação automática](#instalação-automática-recomendado) — um script faz tudo sozinho, no Windows e no Linux
-- [Instalação manual, passo a passo](#instalação-passo-a-passo-completo) — se preferir fazer cada etapa à mão
-- [Dependências](#dependências-o-que-baixar-e-como-instalar) — só para o caminho manual
-
-**Já instalei**
-
-- [Configuração](#configuração) — região da call, região da transmissão, proxy
-- [Uso](#uso) — o que fazer depois de instalar
-- [Solução de problemas](#solução-de-problemas) — Discord travado, transmissão que não sobe, plugin sumido
-
-**Quero entender antes**
-
-- [Por que este plugin existe](#por-que-este-plugin-existe)
-- [Como funciona](#como-funciona) — as duas travas e como cada uma é desarmada
-- [Avisos importantes](#avisos-importantes) — o que o plugin faz com a sua conexão, e os riscos
-
-**Projeto**
-
-- [Estrutura](#estrutura) · [Licença](#licença) · [Autor](#autor) · [Agradecimentos](#agradecimentos)
 
 ## Por que este plugin existe
 
@@ -118,6 +149,38 @@ Ele pede permissão de administrador logo no começo (uma vez só), porque insta
 
 **Windows, pelo terminal:** baixe o [`GoLiveBypass-Installer.bat`](installer/GoLiveBypass-Installer.bat) e dê dois cliques. Mesma coisa, com menu de texto no terminal. Ele libera a execução só para aquele processo (`Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`), baixa o `.ps1` se ele não estiver do lado, e roda tudo.
 
+### Um comando só
+
+Sem baixar nada à mão. **Windows**, no PowerShell:
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/caue-r/GoLiveBypass/main/installer/GoLiveBypass-Installer.ps1)))
+```
+
+**Linux**, no terminal:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/caue-r/GoLiveBypass/main/installer/golivebypass-installer.sh)
+```
+
+Os dois abrem o mesmo menu da instalação normal. Para instalar direto, sem menu, as opções vão no fim:
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/caue-r/GoLiveBypass/main/installer/GoLiveBypass-Installer.ps1))) -Mode Install -Yes
+```
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/caue-r/GoLiveBypass/main/installer/golivebypass-installer.sh) --install --yes
+```
+
+> **Por que não `irm ... | iex` e `curl ... | bash`?** As duas formas curtas funcionam, mas em silêncio pela metade. No Windows, `iex` **ignora as opções** — um `-Mode Install` no fim simplesmente não chega. No Linux é pior: o `bash` passa a ler o script pela entrada padrão, então o menu tenta ler a sua resposta e acaba consumindo a próxima linha do próprio script. A pergunta nunca aparece.
+
+Se o seu shell não tiver `<(...)`, como `sh` ou `dash`, baixe antes:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/caue-r/GoLiveBypass/main/installer/golivebypass-installer.sh -o golive.sh && bash golive.sh
+```
+
 **Linux:**
 
 ```bash
@@ -183,6 +246,148 @@ Outros modos:
 O instalador **baixa o plugin direto deste repositório** em vez de carregar uma cópia embutida, então nunca instala uma versão defasada. Ele nunca mexe no `app.asar`: quem injeta é o instalador oficial do Equicord/Vencord.
 
 O instalador já deixa o plugin **ativado e configurado**. Depois que ele terminar, feche o Discord pela bandeja e abra de novo: é isso.
+
+## Modo standalone: só o Discord, sem Equicord e sem Vencord
+
+Se você não usa nenhum mod e não quer instalar um, existe o **modo standalone**. Ele instala o bypass direto no Discord.
+
+**Não precisa de Node, nem de pnpm, nem de git.** Não há etapa de compilação: o bypass é um arquivo `.js` que o próprio Discord carrega ao abrir.
+
+| | plugin | standalone |
+|---|---|---|
+| exige Equicord ou Vencord | sim | **não** |
+| exige Node, pnpm e git | sim | **não** |
+| convive com outros plugins | sim | não, ocupa o lugar do mod |
+| tela de configuração | dentro do Discord | um `settings.json` |
+| diagnóstico | `/golivebypass` e arquivo | arquivo |
+
+**Escolha o standalone** se você só usa o Discord puro. **Escolha o plugin** se já usa Equicord ou Vencord — os dois ocupam o mesmo lugar dentro do Discord, e instalar o standalone por cima desliga o seu mod. O instalador detecta isso e pergunta antes de mexer.
+
+### Como instalar
+
+**Windows:** baixe a pasta `standalone` e dê dois cliques no `GoLiveBypass-Standalone.bat`.
+
+**Linux:**
+
+```bash
+chmod +x golivebypass-standalone.sh
+./golivebypass-standalone.sh
+```
+
+Para usar a sua própria proxy ou o Tor:
+
+```powershell
+.\GoLiveBypass-Standalone.ps1 -Proxy "socks5://127.0.0.1:9050"
+```
+
+Para ver o que ele detectou sem mexer em nada, `-Mode Status`. Para desfazer, `-Mode Uninstall` — ele devolve o `app.asar` original, byte a byte.
+
+### Como ele funciona, e por que é mais simples
+
+O plugin desarma duas travas: a do cliente, por patch, e a do servidor, pela proxy. O standalone precisa de **uma** só.
+
+O motivo é que a trava do cliente vem de um experimento que o servidor atribui a partir do IP de onde o WebSocket de gateway sai. Com o gateway saindo por um IP não bloqueado, **o experimento não é atribuído** — os botões ficam livres sozinhos, sem patch nenhum. O patch do plugin é rede de segurança, não o mecanismo principal.
+
+Sem a parte do cliente, sobra só o processo principal, e aí o desenho muda: em vez de mandar a sessão inteira pela proxy e soltar depois, o standalone instala uma regra por host (um PAC) que manda **apenas** `gateway.discord.gg` e `remote-auth-gateway.discord.gg` por um roteador SOCKS local. Uma regra assim não precisa ser solta nunca, e todo o resto do Discord sai direto o tempo todo.
+
+O roteador escuta só em `127.0.0.1`, numa porta que o sistema escolhe, e **recusa qualquer destino que não esteja nessa lista** — sem isso ele seria um SOCKS aberto que qualquer programa da máquina poderia usar com a identidade do Discord.
+
+Se nenhuma saída ficar pronta a tempo, a conexão sai direta em vez de ficar esperando: Discord sem bypass é ruim, Discord que não abre é muito pior.
+
+### Depois de uma atualização do Discord
+
+O Discord se atualiza numa pasta nova, sem a injeção, e o bypass sumiria em silêncio. Enquanto a versão atual ainda está rodando, o standalone detecta a pasta nova e já deixa ela pronta. Se mesmo assim parar de funcionar depois de uma atualização, rode o instalador de novo.
+
+## Linux: Arch, Debian, Ubuntu, Fedora
+
+Os instaladores detectam a sua distro sozinhos. Esta seção é para entender o que eles fazem, e para quem prefere fazer à mão.
+
+### Qual dos dois usar
+
+- **Só uso o Discord** → [modo standalone](#modo-standalone-só-o-discord-sem-equicord-e-sem-vencord). Não precisa de Node, nem de pnpm, nem de git. É um `.js` e pronto.
+- **Uso ou quero usar Equicord/Vencord** → o instalador do plugin, abaixo.
+
+### Onde o Discord fica em cada distro
+
+Isto mudou em maio de 2026, na versão 1.0.136 do Discord, e a maior parte dos tutoriais na internet ainda está desatualizada.
+
+**Hoje o pacote que você instala não contém o Discord.** O `.tar.gz` oficial, o `.deb`, o pacote oficial do Arch e o RPM do RPM Fusion trazem apenas um *bootstrapper* de uns 4 MB. Na primeira vez que você abre, ele baixa o app de verdade **para dentro da sua pasta pessoal**.
+
+| como você instalou | onde o `app.asar` fica |
+|---|---|
+| `.tar.gz` oficial, `.deb`, `extra/discord` do Arch, RPM Fusion | `~/.config/discord/app-<versão>/resources/` |
+| PTB | `~/.config/discordptb/app-<versão>/resources/` |
+| Canary | `~/.config/discordcanary/app-<versão>/resources/` |
+| `discord_arch_electron` (AUR) | `/usr/share/discord/resources/` |
+| `discord-electron-openasar` (AUR) | `/usr/lib/discord/resources/` — **já tem OpenAsar** |
+| `discord-ptb` / `discord-canary` (AUR) | `/opt/discord-ptb/resources/`, `/opt/discord-canary/resources/` |
+| Flatpak, Snap | somente leitura, **não dá para injetar** |
+
+Duas consequências práticas:
+
+**Quase sempre não precisa de `sudo`.** Se o seu Discord veio pelo caminho normal, o `app.asar` está na sua pasta pessoal. Os instaladores só pedem root quando o alvo realmente pertence ao root — os pacotes do AUR que ainda embutem o app.
+
+**A atualização do Discord desfaz a injeção.** Ele baixa a versão nova numa pasta `app-<versão>` inteiramente nova, e o que você injetou fica na pasta velha. Não dá para impedir isso de fora: rode o instalador de novo depois de atualizar. O instalador avisa quando esse é o seu caso.
+
+Se você usa `discord-electron-openasar`, ele **já substitui** o `app.asar` pelo OpenAsar. Injetar por cima apaga o OpenAsar — o instalador avisa antes.
+
+Por isso os instaladores procuram o `app.asar` de verdade em vez de confiar numa lista: `/usr/share/discord` existe nos dois mundos com significados opostos — no pacote oficial do Arch ele contém **só** o bootstrapper, e no `discord_arch_electron` contém o app inteiro.
+
+### Arch e derivadas (Manjaro, EndeavourOS, Garuda)
+
+O Arch entrega Node atual (26.x) e tem o `pnpm` empacotado, então é o caso mais simples:
+
+```bash
+sudo pacman -S --needed nodejs npm git pnpm
+```
+
+O instalador faz isso sozinho, com confirmação. Ele também prefere o `pnpm` do pacman em vez de um `npm install -g`, que jogaria arquivos em `/usr/lib` fora do controle do pacote.
+
+Com o pacote **oficial** (`extra/discord`), o `app.asar` fica na sua pasta pessoal e nenhum `sudo` é necessário. Com o **`discord_arch_electron`** do AUR o app fica em `/usr/share/discord`, e aí sim precisa de root — e um `pacman -Syu` sobrescreve a injeção, então rode o instalador de novo depois de atualizar.
+
+### Debian, Ubuntu, Mint, Pop!_OS
+
+Aqui tem uma pedra: **o Node do repositório é velho demais**. O Equicord precisa da versão 22 ou mais nova, e o Debian estável e o Ubuntu LTS entregam versões bem anteriores. O `pnpm build` quebra lá na frente com um erro que não diz "seu Node é antigo" — por isso o instalador confere a versão **antes** de começar e explica o que fazer.
+
+O jeito mais direto:
+
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+# feche e abra o terminal
+nvm install 22
+```
+
+Ou pelo [NodeSource](https://github.com/nodesource/distributions), se preferir pacote do sistema.
+
+Git e npm vêm do repositório normalmente:
+
+```bash
+sudo apt-get install -y git npm
+```
+
+### Fedora e Nobara
+
+```bash
+sudo dnf install -y nodejs npm git
+```
+
+Se o Node vier abaixo de 22:
+
+```bash
+sudo dnf module reset nodejs && sudo dnf module enable nodejs:22
+```
+
+### openSUSE
+
+```bash
+sudo zypper install -y nodejs npm git
+```
+
+### Permissões
+
+O Discord instalado em `/usr/share`, `/usr/lib` ou `/opt` pertence ao root, então a injeção precisa de `sudo`. Os instaladores pedem **só quando precisam** — se o seu Discord está em `~/.local/share` ou numa pasta sua, nada de sudo é usado.
+
+Nenhum dos dois roda comando com sudo sem perguntar antes, e o comando exato aparece na tela para você conferir.
 
 ## Dependências: o que baixar e como instalar
 
@@ -342,13 +547,52 @@ Se o Discord reconectar o gateway sozinho no meio da sessão (queda de rede, sus
 
 - **Discord carregando infinitamente**: normalmente ele se resolve sozinho, porque uma inicialização que não terminou deixa uma marca e a seguinte se recusa a aplicar proxy. Se persistir, com o Discord fechado abra `%APPDATA%/Equicord/settings/settings.json` (ou `.../Vencord/...`) e coloque `"GoLiveBypass": { "enabled": false }`. Em `native-settings.json` as chaves deste plugin são `verifiedProxy` (a proxy guardada) e `bootPending` (a marca); apagar as duas devolve tudo ao estado inicial. Se você usou uma versão anterior, apague também `lastKnownProxy`, que não é mais lida.
 - **"GoLiveBypass is reconnecting behind the proxy"**: a proxy ficou pronta depois de o gateway já ter conectado, então a sessão nasceu desprotegida e o servidor manteve o bloqueio. O plugin procura uma proxy que responda e recarrega o cliente sozinho para a sessão renascer atrás dela. São no máximo duas tentativas: sem esse teto, um bloqueio que a proxy não resolve viraria recarregamento sem fim.
+- **Meu proxy pede usuário e senha**: coloque no próprio endereço, `socks5://usuario:senha@host:porta`. Funciona para SOCKS5 e para proxy HTTP. Se a senha tiver `@` ou `:`, codifique esses caracteres (`@` vira `%40`, `:` vira `%3A`) — sem isso não dá para saber onde a senha termina. A senha nunca aparece no registro.
 - **"No proxy could carry a real request to Discord"**: nenhuma candidata passou no teste TLS real naquele momento. Tente de novo, ou use Tor / uma proxy sua no campo Proxy.
-- **Quer ver o que aconteceu**: rode `/golivebypass` em qualquer canal. Ele copia um diagnóstico com o estado das travas, da transmissão, da região e o registro do processo principal — qual proxy foi testada, quanto tempo levou, em que país ela sai e por que foi recusada.
+- **Quer ver o que aconteceu**: rode `/golivebypass` em qualquer canal, ou abra o arquivo em `%LOCALAPPDATA%\GoLiveBypass\golivebypass.log` (veja [O registro](#o-registro-o-que-o-plugin-anotou)). Ele copia um diagnóstico com o estado das travas, da transmissão, da região e o registro do processo principal — qual proxy foi testada, quanto tempo levou, em que país ela sai e por que foi recusada.
 - **A região da call não mudou**: saia e entre de novo no canal. Canais de servidor com região fixada por um admin ignoram sua preferência, e numa call que já está rolando a região já foi decidida.
 - **Captcha ou verificação de telefone no login**: o Discord marca muitos IPs de proxies públicas. Use Tor ou outra proxy.
 - **`Cannot find matching keyid` ao instalar as dependências**: é o corepack, não o plugin. Ele cria o atalho do `pnpm` antes de saber que versão usar, e na primeira execução busca essa versão no registro do npm conferindo a assinatura com chaves embutidas nele — as que vêm no Node 22 estão vencidas. O instalador detecta isso e instala o pnpm pelo npm. Se estiver fazendo à mão, rode `npm install -g pnpm` e siga com `pnpm install`.
 - **Erro de build `Could not resolve "./plugins/userplugins"`**: você copiou a pasta para dentro de `src/plugins/` por engano. O caminho certo é `src/userplugins/goLiveBypass` — a pasta `userplugins` fica em `src/`, **ao lado** de `plugins`, e pode ser necessário criá-la.
 - **Plugin não aparece na lista**: confirme que a pasta está em `src/userplugins/goLiveBypass` (com `index.tsx` e `native.ts`) e que você rodou `pnpm build` + `pnpm inject` e reiniciou o Discord.
+
+## O registro: o que o plugin anotou
+
+Tudo o que o bypass faz vai para um arquivo, no plugin e no standalone, **no mesmo lugar**:
+
+| sistema | caminho |
+|---|---|
+| Windows | `%LOCALAPPDATA%\GoLiveBypass\golivebypass.log` |
+| Linux | `~/.local/share/GoLiveBypass/golivebypass.log` |
+
+Ele é cortado sozinho quando passa de 256 KB, então não cresce sem fim.
+
+No plugin, `/golivebypass` copia esse mesmo conteúdo já junto com o estado da sessão, pronto para colar num relato. No standalone o arquivo é o único caminho, porque não há interface para um comando.
+
+O registro responde as perguntas que a tela não responde:
+
+- **qual saída foi escolhida, em quanto tempo e de que país** — e quantas foram testadas e recusadas antes dela
+- **se o servidor atribuiu o bloqueio a você nesta sessão** (`atribuicao do video guard`), que é a diferença entre "a proxy funcionou" e "a proxy subiu tarde demais"
+- **se a sessão precisou ser recarregada**, e por quê
+- **a região que o Discord escolheu** e a lista completa que ele considerou
+
+Um registro típico de uma abertura que deu certo:
+
+```
+============================================================
+abrindo | win32 x64 | electron 42.7.1 | chrome 148.0.7778.280
+configuracao | proxy automatico | regiao de call automatica | paises fora BR
+25 candidatas depois do ranqueamento
+lote 1: 10 testadas, 3 alcancaram o Discord
+socks5://... recusada: saida em BR
+socks5://... passou: 1535ms, saida em DE
+aplicando socks5://... so em gateway.discord.gg, remote-auth-gateway.discord.gg
+sessao aberta | atribuicao do video guard: null
+  o cliente aceita video? supports true | supportsInApp true | desktop true
+o servidor liberou video nesta sessao, soltando o proxy
+```
+
+A linha que importa é `atribuicao do video guard: null`. **`null` significa que o servidor nem tentou te bloquear** — foi o que a proxy comprou. Se aparecer `variantId: 2`, o gateway subiu pelo seu IP real, e o plugin vai recarregar para tentar de novo.
 
 ## Estrutura
 
@@ -365,6 +609,17 @@ installer/
 ├── GoLiveBypass-Installer.bat     # Windows: dois cliques, libera a execução e chama o .ps1
 ├── GoLiveBypass-Installer.ps1     # Windows: instalador automático (o motor, usado pelos dois)
 └── golivebypass-installer.sh      # Linux: mesmo instalador, mesmo menu
+
+standalone/
+├── golivebypass.js                # o bypass inteiro, sem build: proxy, roteador SOCKS,
+│                                  #   regra por host, registro
+├── GoLiveBypass-Standalone.bat    # Windows: dois cliques
+├── GoLiveBypass-Standalone.ps1    # Windows: instala direto no Discord
+└── golivebypass-standalone.sh     # Linux: o mesmo
+
+golive-gui/                        # o app standalone em Electron (gera o GoLiveBypass-GUI.exe)
+├── electron/                      #   processo principal, preload e o bypass
+└── src/                           #   a interface
 
 assets/
 └── instalacao.gif                 # o vídeo do começo deste README
@@ -389,6 +644,12 @@ GPL-3.0-or-later, mesma licença do Vencord/Equicord. Veja [LICENSE](LICENSE).
 Ele escreveu o primeiro instalador do GoLiveBypass por conta própria, e foi ele quem mostrou
 que dava para automatizar tudo isso num script só. O instalador que está aqui hoje nasceu
 desse trabalho.
+
+**Obrigado ao [cleo-dev](https://github.com/cleo-dev)** pela interface gráfica.
+
+Ele construiu o aplicativo inteiro, do zero, e com ele o projeto passou a alcançar quem nunca
+vai abrir um terminal — que sempre foi a maior barreira aqui. Antes disso, usar o GoLiveBypass
+exigia entender o que é um checkout, um gerenciador de pacotes e uma etapa de compilação.
 
 # English
 

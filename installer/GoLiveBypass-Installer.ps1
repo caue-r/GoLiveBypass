@@ -8,6 +8,7 @@
     Uso:
       .\GoLiveBypass-Installer.ps1
       .\GoLiveBypass-Installer.ps1 -Source "C:\caminho\do\Equicord"
+      .\GoLiveBypass-Installer.ps1 -PluginSource "C:\caminho\do\GoLiveBypass\goLiveBypass"
       .\GoLiveBypass-Installer.ps1 -Mode Install -Yes
       .\GoLiveBypass-Installer.ps1 -Mode Uninstall
 
@@ -21,6 +22,11 @@ param(
     [string] $Mode = 'Menu',
 
     [string] $Source = '',
+
+    # Instala o plugin de uma pasta local em vez de baixar do GitHub. Serve para testar uma
+    # mudanca antes de publicar: sem isto o instalador sempre traz o que esta no repositorio,
+    # e um teste feito assim mede a versao errada sem avisar.
+    [string] $PluginSource = '',
 
     [switch] $Yes,
 
@@ -87,19 +93,41 @@ function Test-Tool($name) {
     return [bool] (Get-Command $name -ErrorAction SilentlyContinue)
 }
 
+# O endereco da proxy pode carregar usuario e senha, e ele e mostrado na tela e em resumo de
+# instalacao. A senha some daqui.
+function Hide-ProxySecret($proxy) {
+    if ($proxy -match '^([a-z0-9]+)://(?:([^:@]+)(?::[^@]*)?@)?(.+)$') {
+        $user = if ($matches[2]) { "$($matches[2]):***@" } else { '' }
+        return "$($matches[1])://$user$($matches[3])"
+    }
+    return $proxy
+}
+
 # O corepack cria o atalho do pnpm antes de saber que versao usar. Na primeira execucao ele
 # busca essa versao no registro do npm e confere a assinatura com chaves embutidas nele; as
 # chaves do corepack que vem no Node 22 estao velhas, entao o atalho existe e mesmo assim
 # quebra com "Cannot find matching keyid". So testar se o comando existe nao prova nada.
+$script:PnpmVersion = ''
+
 function Test-Pnpm {
     if (-not (Test-Tool 'pnpm')) { return $false }
 
-    # $ErrorActionPreference local (nao afeta fora da funcao): no Windows PowerShell 5.1,
-    # redirecionar o stderr de um comando nativo (mesmo para $null) vira um ErrorRecord, e
-    # com 'Stop' isso derruba o script inteiro so por causa de uma mensagem no stderr.
+    # Um atalho do corepack existe mesmo quando nao funciona, entao a unica prova que vale e
+    # executar. O 2>$null evita assustar quem so vai ver a instalacao seguir depois.
+    # A saida e capturada inteira antes de olhar o codigo. Filtrar com Select-Object no meio do
+    # cano interrompe o comando por cima, e o codigo de saida deixa de valer: um pnpm que
+    # funciona era reprovado.
+    #
+    # O $ErrorActionPreference local (nao afeta fora da funcao) e por causa do 2>$null: no
+    # Windows PowerShell 5.1, redirecionar o stderr de um comando nativo vira um ErrorRecord, e
+    # com 'Stop' isso derrubava o script inteiro so porque o pnpm escreveu algo no stderr.
     $ErrorActionPreference = 'Continue'
-    & pnpm --version 2>$null | Out-Null
-    return $LASTEXITCODE -eq 0
+
+    $found = & pnpm --version 2>$null
+    if ($LASTEXITCODE -ne 0) { return $false }
+
+    $script:PnpmVersion = ($found | Select-Object -First 1)
+    return $true
 }
 
 # O PATH de um processo e uma copia feita quando ele nasceu: o winget pode instalar o Node
@@ -346,22 +374,22 @@ function Install-Toolchain($needGit) {
         Write-Ok "$($missing -join ' e ') instalado. Nao precisa reiniciar nada, seguindo."
     }
 
-    if (-not (Test-Pnpm) -and (Test-Tool 'corepack')) {
-        Write-Step 'Habilitando o pnpm (corepack enable)'
-        & corepack enable
-        Update-PathFromEnvironment
-    }
-
     if (-not (Test-Pnpm)) {
-        # O npm instala o pnpm direto, sem a conferencia de assinatura que derruba o corepack.
-        Write-Step 'O corepack nao entregou um pnpm que roda, instalando pelo npm'
+        # Sem corepack de proposito. Ele so serviria para fixar a versao do campo packageManager,
+        # que o proprio pnpm ja respeita, e em troca traz dois modos de falha: as chaves de
+        # assinatura vencidas que vem no Node 22, e uma pergunta interativa antes de baixar que
+        # deixa o instalador parado esperando uma resposta que ninguem sabe que precisa dar.
+        Write-Step 'Instalando o pnpm pelo npm'
         & npm install -g pnpm
+        if ($LASTEXITCODE -ne 0) { throw 'O npm nao conseguiu instalar o pnpm. Rode "npm install -g pnpm" na mao e tente de novo.' }
         Update-PathFromEnvironment
     }
 
     if (-not (Test-Pnpm)) {
         throw 'Nao consegui deixar o pnpm funcionando. Abra um terminal e rode: npm install -g pnpm'
     }
+
+    Write-Ok "pnpm $script:PnpmVersion"
 }
 
 function Install-Equicord {
@@ -419,8 +447,18 @@ function Copy-Plugin($root) {
     if (Test-Path -LiteralPath $stale) { Remove-Item -LiteralPath $stale -Force }
 
     foreach ($file in $PluginFiles) {
-        Save-Text (Join-Path $target (Split-Path -Leaf $file)) (Get-RepoFile $file)
+        $leaf = Split-Path -Leaf $file
+        if ($PluginSource -eq '') {
+            Save-Text (Join-Path $target $leaf) (Get-RepoFile $file)
+            continue
+        }
+
+        $local = Join-Path $PluginSource $leaf
+        if (-not (Test-Path -LiteralPath $local)) { throw "Nao achei $leaf em $PluginSource." }
+        Copy-Item -LiteralPath $local -Destination (Join-Path $target $leaf) -Force
     }
+
+    if ($PluginSource -ne '') { Write-Warn "Plugin copiado de $PluginSource, e nao do GitHub." }
 }
 
 function Build-Mod($root) {
@@ -464,6 +502,12 @@ function Start-Discord {
 
 function Invoke-Install($root) {
     $root = Select-Target $root
+
+    # Sem esta checagem, um checkout que nao ficou pronto virava "nao e possivel associar o
+    # argumento ao parametro Path", que nao diz nada a quem esta instalando.
+    if (-not $root -or -not (Test-Path -LiteralPath $root)) {
+        throw 'Nao consegui preparar a pasta do Equicord/Vencord. Rode de novo, ou use -Source "C:\caminho\do\Equicord" apontando para um checkout que voce ja tenha.'
+    }
 
     Install-Toolchain $false
     Copy-Plugin $root
@@ -649,6 +693,14 @@ try {
 } catch {
     Write-Host ''
     Write-Err $_.Exception.Message
+
+    # Sem isto o relato vira so a mensagem do PowerShell, que nao diz onde quebrou. Com a linha
+    # e o comando, um print de tela ja basta para achar a causa.
+    $info = $_.InvocationInfo
+    if ($info -and $info.ScriptLineNumber) {
+        Write-Host "      linha $($info.ScriptLineNumber): $($info.Line.Trim())" -ForegroundColor DarkGray
+    }
+    Write-Host '      Se for relatar, mande esta linha junto.' -ForegroundColor DarkGray
     exit 1
 }
 

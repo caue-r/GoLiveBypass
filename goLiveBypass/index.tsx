@@ -145,10 +145,12 @@ const settings = definePluginSettings({
     },
     proxy: {
         type: OptionType.STRING,
-        description: "Proxy used only while your session is being created, like socks5://127.0.0.1:9050 for Tor. Leave empty and your session is created through a free proxy picked and tested for you, which means a stranger carries your login.",
+        description: "Proxy that carries the gateway connection, like socks5://127.0.0.1:9050 for Tor. Add a login as socks5://user:password@host:port when your proxy needs one. Leave empty and a free proxy is picked and tested for you, which means a stranger carries your login.",
         default: "",
-        isValid: (value: string) => value.trim() === "" || /^(socks5|https?):\/\/[a-z0-9.-]{1,253}:\d{1,5}$/.test(value.trim())
-            || "Use socks5://host:porta, http://host:porta ou https://host:porta."
+        // Aceita usuario e senha antes do @. O trecho e casado com ganancia para a senha poder
+        // conter @ e :, que e comum em credencial gerada por provedor.
+        isValid: (value: string) => value.trim() === "" || /^(socks5|https?):\/\/(?:.+@)?[a-z0-9.-]{1,253}:\d{1,5}$/.test(value.trim())
+            || "Use socks5://host:porta, ou socks5://usuario:senha@host:porta se o seu proxy pedir login."
     },
     excludedCountries: {
         type: OptionType.STRING,
@@ -242,8 +244,31 @@ function videoIsBlocked() {
     return variantId === 1 || variantId === 2;
 }
 
+// O Logger do Vencord so aparece no console do DevTools, que ninguem abre para relatar um
+// problema. Isto vai para o mesmo arquivo do processo principal, entao o registro conta a
+// historia inteira num lugar so.
+function record(message: string) {
+    logger.info(message);
+    Native?.logFromRenderer(message).catch(() => {
+        // Sem o registro em arquivo ainda resta o console; nao vale quebrar o fluxo por isso.
+    });
+}
+
+// O que so o renderer enxerga. Sem isto o arquivo mostraria qual proxy subiu, mas nunca se o
+// servidor aceitou, que e a pergunta que importa.
+function recordSession() {
+    const user = UserStore.getCurrentUser();
+    const assignment = user == null ? "sem usuario" : ApexExperimentStore.getServerAssignment("user", user.id, VIDEO_GUARD);
+
+    record(`sessao aberta | atribuicao do video guard: ${JSON.stringify(assignment)}`);
+    record(`  o cliente aceita video? supports ${ask(MediaEngineStore, "supports", "VIDEO")} | supportsInApp ${ask(MediaEngineStore, "supportsInApp", "VIDEO")} | desktop ${ask(MediaEngineStore, "supportsInApp", "DESKTOP_CAPTURE")}`);
+    record(`  regiao preferida ${ask(RTCRegionStore, "getPreferredRegion")} | lista ${JSON.stringify(ask(RTCRegionStore, "getPreferredRegions"))} | override instalado ${original !== undefined}`);
+}
+
 async function releaseProxy() {
     if (!Native) return;
+
+    recordSession();
 
     let wasProxied = false;
     try {
@@ -253,10 +278,13 @@ async function releaseProxy() {
         if (wasProxied && !videoIsBlocked()) await Native.disable();
         bypassRequested = false;
     } catch (error) {
-        logger.error("Failed to reach the desktop process", error);
+        record(`nao consegui falar com o processo principal: ${error instanceof Error ? error.message : String(error)}`);
     }
 
     if (!videoIsBlocked()) {
+        record(wasProxied
+            ? "o servidor liberou video nesta sessao, soltando o proxy"
+            : "o servidor liberou video sem precisar de proxy");
         Native?.sessionWorked();
         showToast(wasProxied
             ? "Go Live is unlocked on this session. Only the gateway stays on the proxy, everything else is direct now."
@@ -264,13 +292,17 @@ async function releaseProxy() {
         return;
     }
 
-    logger.warn("O servidor continuou bloqueando video: o gateway subiu sem passar pelo proxy.");
+    record(`o servidor continuou bloqueando video (proxy no ar: ${wasProxied}); o gateway subiu sem passar por ele`);
 
     // Nao adianta soltar o proxy aqui: sem refazer o gateway a sessao fica bloqueada ate o
     // proximo reinicio. Recarregar com o proxy no ar e a unica saida, e o processo principal
     // limita quantas vezes isso pode acontecer.
     try {
         const result = await Native.retryWithProxy(settings.store.excludedCountries);
+        record(result.retried
+            ? `recarregando para o gateway renascer atras do proxy (tentativa ${result.attempt})`
+            : `nao da para tentar de novo: ${result.reason}`);
+
         if (result.retried) {
             showToast(`GoLiveBypass is reconnecting behind the proxy (attempt ${result.attempt}).`);
             return;
@@ -384,6 +416,7 @@ export default definePlugin({
         },
 
         LOGOUT() {
+            record("voce saiu da conta, preparando o proxy para o proximo login");
             startBypass();
         }
     },
