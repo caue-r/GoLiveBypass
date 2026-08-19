@@ -204,9 +204,9 @@ function Invoke-ModInstaller($task) {
     $location = Get-DiscordRoot
     if ($location) {
         Write-Step "Discord: $location"
-        & pnpm $task -location $location
+        & pnpm $task -location $location | Out-Host
     } else {
-        & pnpm $task
+        & pnpm $task | Out-Host
     }
 }
 
@@ -347,7 +347,14 @@ function Install-Toolchain($needGit) {
         foreach ($tool in $missing) {
             $id = if ($tool -eq 'git') { 'Git.Git' } else { 'OpenJS.NodeJS.LTS' }
             Write-Step "winget install $id (pode demorar alguns minutos)"
-            & winget install --id $id --accept-source-agreements --accept-package-agreements --silent
+            # O Out-Host nao e enfeite. Em PowerShell, tudo o que uma funcao escreve na saida
+            # vira parte do valor de retorno dela, e esta funcao e chamada de dentro da
+            # Install-Equicord, que devolve o caminho do checkout. Sem isto, as linhas do winget
+            # (varias delas vazias) entram no meio do caminho e quem recebe leva um array, nao
+            # um caminho - e a primeira coisa que usa isso como pasta morre com "nao e possivel
+            # associar o argumento ao parametro Path porque ele e uma cadeia de caracteres
+            # vazia". O Out-Host manda para a tela sem passar pela saida da funcao.
+            & winget install --id $id --accept-source-agreements --accept-package-agreements --silent | Out-Host
         }
 
         # Em vez de mandar fechar o terminal e comecar tudo de novo, atualizar o PATH aqui
@@ -380,7 +387,7 @@ function Install-Toolchain($needGit) {
         # assinatura vencidas que vem no Node 22, e uma pergunta interativa antes de baixar que
         # deixa o instalador parado esperando uma resposta que ninguem sabe que precisa dar.
         Write-Step 'Instalando o pnpm pelo npm'
-        & npm install -g pnpm
+        & npm install -g pnpm | Out-Host
         if ($LASTEXITCODE -ne 0) { throw 'O npm nao conseguiu instalar o pnpm. Rode "npm install -g pnpm" na mao e tente de novo.' }
         Update-PathFromEnvironment
     }
@@ -416,7 +423,7 @@ function Install-Equicord {
     }
 
     Write-Step "git clone $EquicordGit"
-    & git clone --depth 1 $EquicordGit $target
+    & git clone --depth 1 $EquicordGit $target | Out-Host
     if ($LASTEXITCODE -ne 0) { throw 'git clone falhou' }
 
     return $target
@@ -466,12 +473,12 @@ function Build-Mod($root) {
     try {
         if (-not (Test-Path -LiteralPath (Join-Path $root 'node_modules'))) {
             Write-Step 'Instalando dependencias (na primeira vez demora alguns minutos)'
-            & pnpm install
+            & pnpm install | Out-Host
             if ($LASTEXITCODE -ne 0) { throw 'pnpm install falhou' }
         }
 
         Write-Step 'Compilando'
-        & pnpm build
+        & pnpm build | Out-Host
         if ($LASTEXITCODE -ne 0) { throw 'pnpm build falhou' }
     } finally {
         Pop-Location
@@ -502,6 +509,11 @@ function Start-Discord {
 
 function Invoke-Install($root) {
     $root = Select-Target $root
+
+    # Blindagem contra saida de comando nativo que escape para o valor de retorno: nesse caso
+    # chegaria aqui um array (linhas do programa + o caminho) em vez de um caminho so. Ficar
+    # com o ultimo item nao vazio devolve o caminho, que e sempre a ultima coisa produzida.
+    $root = @($root) | Where-Object { $_ } | Select-Object -Last 1
 
     # Sem esta checagem, um checkout que nao ficou pronto virava "nao e possivel associar o
     # argumento ao parametro Path", que nao diz nada a quem esta instalando.
