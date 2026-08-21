@@ -43,11 +43,20 @@ body {
 .container {
   width: 100%;
   max-width: 360px;
-  padding: 40px 24px;
+  padding: 28px 24px 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 32px;
+  gap: 24px;
+}
+
+/* Classe colocada pelo renderer a partir do flag de plataforma do preload. */
+.darwin .drag-region {
+  height: 52px;
+}
+
+.darwin .container {
+  padding-top: 64px;
 }
 
 .header {
@@ -276,3 +285,21 @@ p {
   font-size: 11px;
   color: var(--text-muted);
 }
+
+.startup-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+.startup-row input {
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+/* Caixa de log do script (Linux): mostra o progresso em tempo real. */

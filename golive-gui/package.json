@@ -6,17 +6,64 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && electron-builder --win --x64",
-    "preview": "vite preview"
+    "compile": "node scripts/sync-bypass.mjs && tsc && vite build",
+    "build": "npm run compile && electron-builder",
+    "build:win": "npm run compile && electron-builder --win --x64",
+    "build:mac": "npm run compile && electron-builder --mac --arm64",
+    "preview": "vite preview",
+    "sync-bypass": "node scripts/sync-bypass.mjs",
+    "build:linux": "npm run compile && electron-builder --linux AppImage"
   },
   "build": {
     "appId": "com.golivebypass.gui",
     "productName": "GoLiveBypass",
+    "files": ["dist", "dist-electron", "assets"],
     "directories": {
       "output": "dist-app"
     },
     "win": {
-      "target": "portable"
+      "target": "portable",
+      "icon": "build/icon.ico"
+    },
+    "portable": {
+      "artifactName": "${productName}.${ext}"
+    },
+    "extraResources": [
+      {
+        "from": "../standalone",
+        "to": "extra/standalone",
+        "filter": [
+          "golivebypass-standalone.sh",
+          "golivebypass.js"
+        ]
+      }
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["arm64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["arm64"]
+        }
+      ],
+      "icon": "build/icon.png",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "category": "public.app-category.utilities",
+      "artifactName": "${productName}.${ext}"
+    },
+    "dmg": {
+      "artifactName": "${productName}.${ext}"
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Utility",
+      "icon": "build/icon.png",
+      "artifactName": "${productName}.AppImage"
     }
   },
   "devDependencies": {

@@ -118,12 +118,15 @@ function Test-Pnpm {
     # cano interrompe o comando por cima, e o codigo de saida deixa de valer: um pnpm que
     # funciona era reprovado.
     #
-    # O $ErrorActionPreference local (nao afeta fora da funcao) e por causa do 2>$null: no
-    # Windows PowerShell 5.1, redirecionar o stderr de um comando nativo vira um ErrorRecord, e
-    # com 'Stop' isso derrubava o script inteiro so porque o pnpm escreveu algo no stderr.
+    # Duas protecoes, para dois modos de falha diferentes. O $ErrorActionPreference local (nao
+    # afeta fora da funcao) e por causa do 2>$null: no Windows PowerShell 5.1, redirecionar o
+    # stderr de um comando nativo vira um ErrorRecord, e com 'Stop' isso derrubava o script
+    # inteiro so porque o pnpm escreveu algo no stderr. O try/catch e para o corepack, que pode
+    # nao so falhar como EXPLODIR: a pergunta "Corepack is about to download" sem resposta vira
+    # erro terminante. Relato real: o instalador morria apontando a linha 16 do shim.
     $ErrorActionPreference = 'Continue'
 
-    $found = & pnpm --version 2>$null
+    try { $found = & pnpm --version 2>$null } catch { return $false }
     if ($LASTEXITCODE -ne 0) { return $false }
 
     $script:PnpmVersion = ($found | Select-Object -First 1)
@@ -387,6 +390,9 @@ function Install-Toolchain($needGit) {
         # assinatura vencidas que vem no Node 22, e uma pergunta interativa antes de baixar que
         # deixa o instalador parado esperando uma resposta que ninguem sabe que precisa dar.
         Write-Step 'Instalando o pnpm pelo npm'
+        # Out-Host, e nao a saida solta: um comando nativo escreve na saida da funcao, e esta
+        # funcao roda dentro de outra cujo retorno vira o caminho do checkout. Sem isto, as
+        # linhas de aviso do npm entram no valor de retorno e o caminho vira um array.
         & npm install -g pnpm | Out-Host
         if ($LASTEXITCODE -ne 0) { throw 'O npm nao conseguiu instalar o pnpm. Rode "npm install -g pnpm" na mao e tente de novo.' }
         Update-PathFromEnvironment
